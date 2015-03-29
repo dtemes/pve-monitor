@@ -62,6 +62,7 @@ my %arguments = (
     'timeout'        => 5,
     'debug'          => undef,
     'singlenode'     => undef,
+	'node'			 => undef,
 );
 
 sub usage {
@@ -69,6 +70,8 @@ sub usage {
     print "\n";
     print "  --nodes\n";
     print "    Check the state of the cluster's members\n";
+	print "  --node\n";
+    print "    Connect to specified node\n";
     print "  --storages\n";
     print "    Check the state of the cluster's storages\n";
     print "  --qemu\n";
@@ -94,6 +97,7 @@ sub is_number {
 }
 
 GetOptions ("nodes"       => \$arguments{nodes},
+			"node=s"      => \$arguments{node}, 
             "storages"    => \$arguments{storages},
             "openvz"      => \$arguments{openvz},
             "qemu"        => \$arguments{qemu},
@@ -108,6 +112,9 @@ GetOptions ("nodes"       => \$arguments{nodes},
             'timeout|t=s' => \$arguments{timeout},
             'debug'       => \$arguments{debug},
 );
+
+print "Setting node to $arguments{node}\n"
+    if $arguments{debug};
 
 print "Setting timeout to $arguments{timeout}\n"
     if $arguments{debug};
@@ -398,18 +405,35 @@ while ( <FILE> ) {
 
                          print "Loaded storage $name\n"
                            if $arguments{debug};
-
-                         $monitoredStorages[scalar(@monitoredStorages)] = ({
-                                 name         => $name,
-                                 node         => $node,
-                                 warn_disk    => $warnDisk,
-                                 crit_disk    => $critDisk,
-                                 curdisk      => undef,
-                                 disk_status  => $status{OK},
-                                 status       => $status{UNDEF},
-                             },
-                         );
-                         $readingObject = 0;
+						
+						if ($arguments{node}) {
+							
+							if ($arguments{node} eq $node ) {
+		
+								 $monitoredStorages[scalar(@monitoredStorages)] = ({
+										 name         => $name,
+										 node         => $node,
+										 warn_disk    => $warnDisk,
+										 crit_disk    => $critDisk,
+										 curdisk      => undef,
+										 disk_status  => $status{OK},
+										 status       => $status{UNDEF},
+									 },
+								 );
+							 } 
+						 } else {
+							 $monitoredStorages[scalar(@monitoredStorages)] = ({
+										 name         => $name,
+										 node         => $node,
+										 warn_disk    => $warnDisk,
+										 crit_disk    => $critDisk,
+										 curdisk      => undef,
+										 disk_status  => $status{OK},
+										 status       => $status{UNDEF},
+									 },
+								 );
+						 }
+						 $readingObject = 0;
                          last;
                      }
                  }
@@ -423,19 +447,21 @@ while ( <FILE> ) {
                  my $critCpu  = undef;
                  my $critMem  = undef;
                  my $critDisk = undef;
-
+				 my $node = undef;
+				 
                  $readingObject = 1;
 
                  while (<FILE>) {
                      my $objLine = $_;
 
                      next if ( $objLine =~ m/^#/i );
-                     if ( $objLine =~ m/([\S]+)\s+([\S]+)\s+([\S]+)/i ) {
+					 if ( $objLine =~ m/([\S]+)\s+([\S]+)(\s+([\S]+))?/i ) {
+                     #if ( $objLine =~ m/([\S]+)\s+([\S]+)\s+([\S]+)/i ) {
                          switch ($1) {
                              case "cpu" {
-                                 if ((is_number $2) and (is_number $3)) {
+                                 if ((is_number $2) and (is_number $4)) {
                                      $warnCpu = $2;
-                                     $critCpu = $3;
+                                     $critCpu = $4;
                                  }
                                  else {
                                      close(FILE);
@@ -445,9 +471,9 @@ while ( <FILE> ) {
                                  }
                              }
                              case "mem" {
-                                 if ((is_number $2) and (is_number $3)) {
+                                 if ((is_number $2) and (is_number $4)) {
                                      $warnMem = $2;
-                                     $critMem = $3;
+                                     $critMem = $4;
                                  }
                                  else {
                                      close(FILE);
@@ -457,9 +483,9 @@ while ( <FILE> ) {
                                  }
                              }
                              case "disk" { 
-                                 if ((is_number $2) and (is_number $3)) {
+                                 if ((is_number $2) and (is_number $4)) {
                                      $warnDisk = $2;
-                                     $critDisk = $3;
+                                     $critDisk = $4;
                                  }
                                  else {
                                      close(FILE);
@@ -468,6 +494,9 @@ while ( <FILE> ) {
                                      exit $status{UNKNOWN};
                                  }
                              }
+							 case "node" {
+								$node = $2;
+							 }
                              else {
                                  close(FILE);
                                  print "Invalid token $1 " .
@@ -486,27 +515,54 @@ while ( <FILE> ) {
 
                          print "Loaded openvz $name\n"
                            if $arguments{debug};
-
-                         $monitoredOpenvz[scalar(@monitoredOpenvz)] = ({
-                                 name         => $name,
-                                 warn_cpu     => $warnCpu,
-                                 warn_mem     => $warnMem,
-                                 warn_disk    => $warnDisk,
-                                 crit_cpu     => $critCpu,
-                                 crit_mem     => $critMem,
-                                 crit_disk    => $critDisk,
-                                 alive        => undef,
-                                 curmem       => undef,
-                                 curdisk      => undef,
-                                 curcpu       => undef,
-                                 cpu_status   => $status{OK},
-                                 mem_status   => $status{OK},
-                                 disk_status  => $status{OK},
-                                 status       => $status{UNDEF},
-                                 uptime       => undef,
-                                 node         => undef,
-                             },
-                         );
+						
+						if ($arguments{node}) {
+							
+							if ($arguments{node} eq $node ) {
+							
+							 $monitoredOpenvz[scalar(@monitoredOpenvz)] = ({
+									 name         => $name,
+									 warn_cpu     => $warnCpu,
+									 warn_mem     => $warnMem,
+									 warn_disk    => $warnDisk,
+									 crit_cpu     => $critCpu,
+									 crit_mem     => $critMem,
+									 crit_disk    => $critDisk,
+									 alive        => undef,
+									 curmem       => undef,
+									 curdisk      => undef,
+									 curcpu       => undef,
+									 cpu_status   => $status{OK},
+									 mem_status   => $status{OK},
+									 disk_status  => $status{OK},
+									 status       => $status{UNDEF},
+									 uptime       => undef,
+									 node         => $node,
+								 },
+							 );
+							}
+						 } else {
+							$monitoredOpenvz[scalar(@monitoredOpenvz)] = ({
+									 name         => $name,
+									 warn_cpu     => $warnCpu,
+									 warn_mem     => $warnMem,
+									 warn_disk    => $warnDisk,
+									 crit_cpu     => $critCpu,
+									 crit_mem     => $critMem,
+									 crit_disk    => $critDisk,
+									 alive        => undef,
+									 curmem       => undef,
+									 curdisk      => undef,
+									 curcpu       => undef,
+									 cpu_status   => $status{OK},
+									 mem_status   => $status{OK},
+									 disk_status  => $status{OK},
+									 status       => $status{UNDEF},
+									 uptime       => undef,
+									 node         => undef,
+								 },
+							 );
+						 }
                          $readingObject = 0;
                          last;
                      }
@@ -520,19 +576,20 @@ while ( <FILE> ) {
                  my $critCpu  = undef;
                  my $critMem  = undef;
                  my $critDisk = undef;
-
+				 my $node = undef;
+				 
                  $readingObject = 1;
 
                  while (<FILE>) {
                      my $objLine = $_;
 
                      next if ( $objLine =~ m/^#/i );
-                     if ( $objLine =~ m/([\S]+)\s+([\S]+)\s+([\S]+)/i ) {
+                     if ( $objLine =~ m/([\S]+)\s+([\S]+)(\s+([\S]+))?/i ) {
                          switch ($1) {
                              case "cpu" {
-                                 if ((is_number $2)and(is_number $3)) {
+                                 if ((is_number $2)and(is_number $4)) {
                                      $warnCpu = $2;
-                                     $critCpu = $3;
+                                     $critCpu = $4;
                                  }
                                  else {
                                      close(FILE);
@@ -542,9 +599,9 @@ while ( <FILE> ) {
                                  }
                              }
                              case "mem" {
-                                 if ((is_number $2)and(is_number $3)) {
+                                 if ((is_number $2)and(is_number $4)) {
                                      $warnMem = $2;
-                                     $critMem = $3;
+                                     $critMem = $4;
                                  }
                                  else {
                                      close(FILE);
@@ -554,9 +611,9 @@ while ( <FILE> ) {
                                  }
                              }
 					     case "disk" {
-			 if ((is_number $2)and(is_number $3)) {
+								if ((is_number $2)and(is_number $4)) {
                                      $warnDisk = $2;
-                                     $critDisk = $3;
+                                     $critDisk = $4;
                                  }
                                  else {
                                      close(FILE);
@@ -565,6 +622,9 @@ while ( <FILE> ) {
                                      exit $status{UNKNOWN};
                                  }
                              }
+						case "node" {
+							$node = $2;
+						}
                              else {
                                  close(FILE);
                                  print "Invalid token $1 " .
@@ -583,28 +643,58 @@ while ( <FILE> ) {
 
                          print "Loaded qemu $name\n"
                            if $arguments{debug};
-
-                         $monitoredQemus[scalar(@monitoredQemus)] = (
-                             {
-                                 name         => $name,
-                                 warn_cpu     => $warnCpu,
-                                 warn_mem     => $warnMem,
-                                 warn_disk    => $warnDisk,
-                                 crit_cpu     => $critCpu,
-                                 crit_mem     => $critMem,
-                                 crit_disk    => $critDisk,
-                                 alive        => undef,
-                                 curmem       => undef,
-                                 curdisk      => undef,
-                                 curcpu       => undef,
-                                 cpu_status   => $status{OK},
-                                 mem_status   => $status{OK},
-                                 disk_status  => $status{OK},
-                                 status       => $status{UNDEF},
-                                 uptime       => undef,
-                                 node         => undef,
-                             },
-                         );
+							
+						if ($arguments{node}) {
+							
+							if ($arguments{node} eq $node ) {
+							
+								 $monitoredQemus[scalar(@monitoredQemus)] = (
+									 {
+										 name         => $name,
+										 warn_cpu     => $warnCpu,
+										 warn_mem     => $warnMem,
+										 warn_disk    => $warnDisk,
+										 crit_cpu     => $critCpu,
+										 crit_mem     => $critMem,
+										 crit_disk    => $critDisk,
+										 alive        => undef,
+										 curmem       => undef,
+										 curdisk      => undef,
+										 curcpu       => undef,
+										 cpu_status   => $status{OK},
+										 mem_status   => $status{OK},
+										 disk_status  => $status{OK},
+										 status       => $status{UNDEF},
+										 uptime       => undef,
+										 node         => $node,
+									 },
+								 );
+								 
+							}
+						 
+						 } else {
+							$monitoredQemus[scalar(@monitoredQemus)] = (
+									 {
+										 name         => $name,
+										 warn_cpu     => $warnCpu,
+										 warn_mem     => $warnMem,
+										 warn_disk    => $warnDisk,
+										 crit_cpu     => $critCpu,
+										 crit_mem     => $critMem,
+										 crit_disk    => $critDisk,
+										 alive        => undef,
+										 curmem       => undef,
+										 curdisk      => undef,
+										 curcpu       => undef,
+										 cpu_status   => $status{OK},
+										 mem_status   => $status{OK},
+										 disk_status  => $status{OK},
+										 status       => $status{UNDEF},
+										 uptime       => undef,
+										 node         => $node,
+									 },
+								 );
+						 }
                          $readingObject = 0;
                          last;
                      }
@@ -716,12 +806,17 @@ if ( $readingObject ) {
 }
 
 for($a = 0; $a < scalar(@monitoredNodes); $a++) {
-    my $host     = $monitoredNodes[$a]->{address}  or next;
+	my $host     = $monitoredNodes[$a]->{address}  or next;
     my $port     = $monitoredNodes[$a]->{port}     or next;
     my $username = $monitoredNodes[$a]->{username} or next;
     my $password = $monitoredNodes[$a]->{password} or next;
     my $realm    = $monitoredNodes[$a]->{realm}    or next;
-
+	my $name     = $monitoredNodes[$a]->{name}    or next;
+	
+	if ($arguments{node}) {
+		next unless ($name eq $arguments{node})
+	}
+		
     my $isClusterMember = 0;
 
     print "Trying " . $host . "...\n"
@@ -1120,7 +1215,15 @@ if (defined $arguments{nodes}) {
     my $reportSummary = '';
 
     foreach my $mnode( @monitoredNodes ) {
-        $statusScore += $mnode->{status};
+		
+		if ($arguments{node}) {
+			next unless ($arguments{node} eq $mnode->{name});
+		}
+			
+		print "checking node $mnode->{name}\n"
+			if $arguments{debug};
+		
+		$statusScore += $mnode->{status};
         
         if ($mnode->{status} ne $status{UNDEF}) {
             # compute max memory usage
@@ -1237,7 +1340,11 @@ if (defined $arguments{nodes}) {
     foreach my $mstorage( @monitoredStorages ) {
         #Add pool name to output
 	#$mstorage->{name} .= "/" . $mstorage->{pool} if defined $mstorage->{pool};
-
+	
+		if ($arguments{node}) {
+			next unless ($mstorage->{node} eq $arguments{node})
+		}
+		
         if ($mstorage->{status} eq -1) {
             $statusScore += $status{CRITICAL};
 
@@ -1292,7 +1399,11 @@ if (defined $arguments{nodes}) {
     foreach my $mopenvz( @monitoredOpenvz ) {
         #Add pool name to output
 	#$mopenvz->{name} .= "/" . $mopenvz->{pool} if defined $mopenvz->{pool};
-
+	
+		if ($arguments{node}) {
+			next unless ($mopenvz->{node} eq $arguments{node})
+		}	
+		
         if ($mopenvz->{status} ne $status{UNDEF}) {
 
             if (defined $mopenvz->{warn_mem}) {
@@ -1385,7 +1496,11 @@ if (defined $arguments{nodes}) {
     foreach my $mqemu( @monitoredQemus ) {
 	#Add pool name to output
 	#$mqemu->{name} .= "/" . $mqemu->{pool} if defined $mqemu->{pool};
-
+		
+		if ($arguments{node}) {
+			next unless ($mqemu->{node} eq $arguments{node})
+		}
+		
         if ($mqemu->{status} ne $status{UNDEF}) {
             if (defined $mqemu->{warn_mem}) {
                 $mqemu->{mem_status} = $status{WARNING}
